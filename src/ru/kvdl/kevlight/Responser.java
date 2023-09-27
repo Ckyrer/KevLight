@@ -3,16 +3,19 @@ package ru.kvdl.kevlight;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Method;
 import java.net.SocketException;
 
 public class Responser {
     public final OutputStream out;
-    private final Action on404;
+    private final ResponseAction on404;
+    private final String request;
 
     private final String[] headers;
     private final String ip;
 
-    protected Responser(OutputStream out, Action on404, String[] headers, String ip) {
+    protected Responser(OutputStream out, ResponseAction on404, String req, String[] headers, String ip) {
+        this.request = req;
         this.out = out;
         this.on404 = on404;
         this.headers = headers;
@@ -125,7 +128,7 @@ public class Responser {
      * Send 404 error page
      */
     public void send404Response() {
-        on404.response(headers, ip, this);
+        on404.response(request, headers, ip, this);
     }
 
 }
