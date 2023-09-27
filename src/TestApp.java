@@ -1,5 +1,9 @@
+import ru.kvdl.kevlight.Server;
+
 public class TestApp {
     public static void main(String[] args) {
-        System.out.println("Hello world!");
+        Server host = new Server(new Handler(), 7070);
+
+        host.start();
     }
 }

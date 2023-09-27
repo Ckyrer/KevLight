@@ -12,12 +12,12 @@ import java.util.Map;
 
 public class Server {
     // Set by user
-    final private Class<?> app;
+    final private Object app;
     final private int port;
     private String commandPrefix = "CMD";
-    private Method overwatch;
+    private Method observer;
 
-    public Server(Class<?> app, int port) {
+    public Server(Object app, int port) {
         this.app = app;
         this.port = port;
     }
@@ -33,14 +33,14 @@ public class Server {
     }
 
     // Start server
-    public void start(Object mainClass) {
+    public void start() {
         // Поиск методов с аннотацией KLRequestHandler и KLObserver
-        for ( Method handler : mainClass.getClass().getDeclaredMethods() ) {
+        for ( Method handler : app.getClass().getDeclaredMethods() ) {
             if (!handler.isAnnotationPresent(KLRequestHandler.class)) {
                 if (handler.isAnnotationPresent(KLObserver.class)) {
                     Class<?>[] types = handler.getParameterTypes();
-                    if (types[0] == String.class && types[1] == String[].class && types[2] == Responser.class) {
-                        this.overwatch = handler;
+                    if (types.length==4 && types[0] == String.class && types[1] == String[].class && types[2] == String.class && types[3] == Responser.class) {
+                        this.observer = handler;
                     } else {
                         throw new RuntimeException("Неверные аргументы метода для использования аннотации KLRequestHandler");
                     }
@@ -61,7 +61,7 @@ public class Server {
         }
 
         // Поиск методов с аннотацией KLCmdRequestHandler
-        for ( Method handler : mainClass.getClass().getDeclaredMethods() ) {
+        for ( Method handler : app.getClass().getDeclaredMethods() ) {
             if (!handler.isAnnotationPresent(KLCmdRequestHandler.class)) continue;
 
             KLCmdRequestHandler ann = handler.getAnnotation(KLCmdRequestHandler.class);
@@ -112,7 +112,7 @@ public class Server {
                     responser =  new Responser(output, this.commonResponses.get("404"), request, headers, ip);
                     
                     // Отвечаем, если смотртитель одобрил подключение
-                    if ( overwatch==null || overwatch.checkpoint(request, ip, headers, responser) ) {
+                    if ( observer ==null || getObserverPermission(request, headers, ip, responser) ) {
 
                         // Если запрос является командой
                         if (request.contains(commandPrefix+"<>")) {
@@ -129,6 +129,14 @@ public class Server {
     // ---------------
     // PRIVATE METHODS
     // ---------------
+
+    // Запустить наблюдателя
+    private boolean getObserverPermission(String request, String[] args, String ip, Responser resp) {
+        try {
+            return this.observer.invoke(this.app, request, args, ip, resp).equals(true);
+        } catch (ReflectiveOperationException e) {e.printStackTrace();}
+        return false;
+    }
 
     // Get headers from BufferedReader
     private String[] getRequestHeaders(BufferedReader request) {

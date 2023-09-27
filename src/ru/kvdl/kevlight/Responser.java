@@ -10,7 +10,6 @@ public class Responser {
     public final OutputStream out;
     private final ResponseAction on404;
     private final String request;
-
     private final String[] headers;
     private final String ip;
 

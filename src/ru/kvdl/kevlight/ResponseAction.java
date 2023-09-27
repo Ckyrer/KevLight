@@ -4,18 +4,18 @@ import java.lang.reflect.Method;
 
 class ResponseAction  {
     final boolean isStart;
-    private final Class<?> app;
+    private final Object app;
     private final Method func;
     private final Method funcCmd;
 
-    public ResponseAction(Class<?> app, Method func, boolean isStart) {
+    public ResponseAction(Object app, Method func, boolean isStart) {
         this.app = app;
         this.isStart = isStart;
         this.func = func;
         this.funcCmd = null;
     }
 
-    public ResponseAction(Class<?> app, Method func) {
+    public ResponseAction(Object app, Method func) {
         this.app = app;
         this.isStart = false;
         this.func = null;
