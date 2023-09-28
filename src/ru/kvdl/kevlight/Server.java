@@ -42,7 +42,7 @@ public class Server {
 
                 // Проверка на верные параметры
                 if (validateMethodArguments(handler, false)) {
-                    this.commonResponses.put(ann.request(), new ResponseAction(this.app, handler, ann.startsWith()));
+                    this.commonResponses.put(ann.request(), new ResponseAction(this.app, handler, ann.requestType(), ann.startsWith()));
                 } else {
                     throw new RuntimeException("Неверные аргументы метода для использования аннотации KLRequestHandler: " + handler.getName());
                 }
@@ -106,6 +106,7 @@ public class Server {
 
                     final String fstLine = headers[0];
                     final String request = fstLine.substring(fstLine.indexOf(" ")+2, fstLine.lastIndexOf(" "));
+                    final String type = fstLine.substring(0, fstLine.lastIndexOf(' '));
 
                     final String ip = socket.getInetAddress().toString().substring(1);
 
@@ -118,7 +119,7 @@ public class Server {
                         if (request.contains(commandPrefix+"<>")) {
                             this.commandRequestHandler(request, headers, ip);
                         } else {
-                            this.commonRequestHandler(request, headers, ip);
+                            this.commonRequestHandler(request, type, headers, ip);
                         }
                     }                
                 }
@@ -180,15 +181,15 @@ public class Server {
     }
 
     // Common requests handler 
-    private void commonRequestHandler(String request, String[] headers, String ip) {
+    private void commonRequestHandler(String type, String request, String[] headers, String ip) {
         // If response exist
-        if (this.commonResponses.containsKey(request)) {
-            createResponseThread(this.commonResponses.get(request), request, headers, ip);
+        if (this.commonResponses.containsKey(request) && this.commonResponses.get(request).type.equals(type)) {
+            createResponseThread(this.commonResponses.get(request+"*"+type), request, headers, ip);
         // Else looking for response, where responseIfStartsWith=true
         } else {
             // Ищем тот ответ, с которого начинается запрос
             for (Map.Entry<String, ResponseAction> el: this.commonResponses.entrySet()) {
-                if ( !request.startsWith(el.getKey()) || el.getKey().isEmpty() || !el.getValue().isStart) continue;
+                if ( !el.getValue().type.equals(type) && !request.startsWith(el.getKey()) || el.getKey().isEmpty() || !el.getValue().isStart) continue;
 
                 createResponseThread(el.getValue(), request, headers, ip);
                 return;

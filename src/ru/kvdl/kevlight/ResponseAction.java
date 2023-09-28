@@ -4,13 +4,15 @@ import java.lang.reflect.Method;
 
 class ResponseAction  {
     final boolean isStart;
+    final String type;
     private final Object app;
     private final Method func;
     private final Method funcCmd;
 
-    public ResponseAction(Object app, Method func, boolean isStart) {
+    public ResponseAction(Object app, Method func, String type, boolean isStart) {
         this.app = app;
         this.isStart = isStart;
+        this.type = type;
         this.func = func;
         this.funcCmd = null;
     }
@@ -18,6 +20,7 @@ class ResponseAction  {
     public ResponseAction(Object app, Method func) {
         this.app = app;
         this.isStart = false;
+        this.type = null;
         this.func = null;
         this.funcCmd = func;
     }

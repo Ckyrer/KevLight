@@ -4,6 +4,29 @@ import java.io.File;
 import java.io.FileInputStream;
 
 public class DHOperator {
+    public static String readFile(File file) {
+        String data = "";
+        try {
+            FileInputStream in = new FileInputStream(file);
+            data = new String(in.readAllBytes());
+            in.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return data;
+    }
+
+    public static byte[] readFileBytes(File file) {
+        byte[] data = null;
+        try {
+            FileInputStream in = new FileInputStream(file);
+            data = in.readAllBytes();
+            in.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return data;
+    }
     public static String readFile(String path) {
         String data = "";
         try {

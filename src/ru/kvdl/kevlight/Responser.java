@@ -1,5 +1,6 @@
 package ru.kvdl.kevlight;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -38,6 +39,22 @@ public class Responser {
                 System.out.println("Соединение разорвано");
             }
         } catch (IOException e) {e.printStackTrace();}
+    }
+
+    public void sendString(String content) {
+        sendBaseResponse(
+            "200 OK",
+            new String[] {"Content-Type: text/html; charset=utf-8"},
+            content.getBytes()
+        );
+    }
+
+    public void sendJSON(File json) {
+        sendBaseResponse(
+                "200 OK",
+                new String[] {"Content-Type: text/json; charset=utf-8"},
+                DHOperator.readFileBytes(json)
+        );
     }
 
     /** 

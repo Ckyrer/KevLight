@@ -9,5 +9,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 public @interface KLRequestHandler {
     public String request();
+    public String requestType() default "GET";
     public boolean startsWith() default false;
 }
