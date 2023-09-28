@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="KevLight:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/KevLight_jar</output-path>
+    <root id="archive" name="KevLight.jar">
+      <element id="module-output" name="KevLight" />
+    </root>
+  </artifact>
+</component>

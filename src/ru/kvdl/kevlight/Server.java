@@ -34,49 +34,49 @@ public class Server {
 
     // Start server
     public void start() {
-        // Поиск методов с аннотацией KLRequestHandler и KLObserver
+        // Поиск методов с аннотациями
         for ( Method handler : app.getClass().getDeclaredMethods() ) {
-            if (!handler.isAnnotationPresent(KLRequestHandler.class)) {
-                if (handler.isAnnotationPresent(KLObserver.class)) {
-                    Class<?>[] types = handler.getParameterTypes();
-                    if (types.length==4 && types[0] == String.class && types[1] == String[].class && types[2] == String.class && types[3] == Responser.class) {
-                        this.observer = handler;
-                    } else {
-                        throw new RuntimeException("Неверные аргументы метода для использования аннотации KLRequestHandler");
-                    }
+            // Прочие запросы
+            if (handler.isAnnotationPresent(KLRequestHandler.class)) {
+                KLRequestHandler ann = handler.getAnnotation(KLRequestHandler.class);
+
+                // Проверка на верные параметры
+                if (validateMethodArguments(handler, false)) {
+                    this.commonResponses.put(ann.request(), new ResponseAction(this.app, handler, ann.startsWith()));
+                } else {
+                    throw new RuntimeException("Неверные аргументы метода для использования аннотации KLRequestHandler: " + handler.getName());
                 }
-                continue;
-            }
+            // Команды
+            } else if (handler.isAnnotationPresent(KLCmdRequestHandler.class)) {
+                KLCmdRequestHandler ann = handler.getAnnotation(KLCmdRequestHandler.class);
 
-            KLRequestHandler ann = handler.getAnnotation(KLRequestHandler.class);
-            Class<?>[] types = handler.getParameterTypes();
+                // Проверка на верные параметры
+                if (validateMethodArguments(handler, true)) {
+                    this.commandResponses.put(ann.command(), new ResponseAction(this.app, handler));
+                } else {
+                    throw new RuntimeException("Неверные аргументы метода для использования аннотации KLCmdRequestHandler: " + handler.getName());
+                }
+            // Наблюдатель
+            } else if (handler.isAnnotationPresent(KLObserver.class)) {
+                Class<?>[] types = handler.getParameterTypes();
 
-            // Проверка на верные аргументы
-            if (types.length==4 && types[0] == String.class && types[1] == String[].class && types[2] == String.class && types[3] == Responser.class) {
-                this.commonResponses.put(ann.request(), new ResponseAction(this.app, handler, ann.startsWith()));
-            } else {
-                throw new RuntimeException("Неверные аргументы метода для использования аннотации KLRequestHandler");
-            }
+                // Проверка на верные параметры и возвращаемое значение
+                if (handler.getReturnType() != boolean.class) {
+                    throw new RuntimeException("Неверный тип возвращаемого значения метода для использования аннотации KLObserver: " + handler.getName());
+                }
 
-        }
-
-        // Поиск методов с аннотацией KLCmdRequestHandler
-        for ( Method handler : app.getClass().getDeclaredMethods() ) {
-            if (!handler.isAnnotationPresent(KLCmdRequestHandler.class)) continue;
-
-            KLCmdRequestHandler ann = handler.getAnnotation(KLCmdRequestHandler.class);
-            Class<?>[] types = handler.getParameterTypes();
-
-            // Проверка на верные аргументы
-            if (types.length==3 && types[0] == String[].class && types[1] == String.class && types[2] == Responser.class) {
-                this.commandResponses.put(ann.command(), new ResponseAction(this.app, handler));
-            } else {
-                throw new RuntimeException("Неверные аргументы метода для использования аннотации KLCmdRequestHandler");
+                if (types.length == 4 &&
+                    types[0] == String.class && types[1] == String[].class && types[2] == String.class && types[3] == Responser.class
+                ) {
+                    this.observer = handler;
+                } else {
+                    throw new RuntimeException("Неверные аргументы метода для использования аннотации KLObserver: " + handler.getName());
+                }
             }
         }
 
         // Запуск главного цикла
-        mainLoop();
+        this.mainLoop();
 
     }
 
@@ -99,7 +99,7 @@ public class Server {
                     output = socket.getOutputStream();
 
                     // ожидание первой строки запроса
-                    while (!input.ready()) ;
+                    while (!input.ready());
 
                     // чтение всего, что было отправлено клиентом
                     final String[] headers = getRequestHeaders(input);
@@ -112,7 +112,7 @@ public class Server {
                     responser =  new Responser(output, this.commonResponses.get("404"), request, headers, ip);
                     
                     // Отвечаем, если смотртитель одобрил подключение
-                    if ( observer ==null || getObserverPermission(request, headers, ip, responser) ) {
+                    if ( observer ==null || this.getObserverPermission(request, headers, ip, responser) ) {
 
                         // Если запрос является командой
                         if (request.contains(commandPrefix+"<>")) {
@@ -130,10 +130,19 @@ public class Server {
     // PRIVATE METHODS
     // ---------------
 
+    // Проверить на правильность аргументы метода
+    private boolean validateMethodArguments(Method method, boolean isCmd) {
+        Class<?>[] types = method.getParameterTypes();
+        if (isCmd) {
+            return types.length==3 && types[0] == String[].class && types[1] == String.class && types[2] == Responser.class;
+        }
+        return types.length==4 && types[0] == String.class && types[1] == String[].class && types[2] == String.class && types[3] == Responser.class;
+    }
+
     // Запустить наблюдателя
     private boolean getObserverPermission(String request, String[] args, String ip, Responser resp) {
         try {
-            return this.observer.invoke(this.app, request, args, ip, resp).equals(true);
+            return (boolean) this.observer.invoke(this.app, request, args, ip, resp);
         } catch (ReflectiveOperationException e) {e.printStackTrace();}
         return false;
     }
@@ -166,36 +175,33 @@ public class Server {
             String[] args = request.substring(request.indexOf("<>", request.indexOf(commandPrefix)+5)+2).split("<>");
             createResponseThread(this.commandResponses.get(cmd), request, args, ip);
         } else {
-            this.on404(request, headers, ip);
+            this.send404();
         }
     }
 
     // Common requests handler 
     private void commonRequestHandler(String request, String[] headers, String ip) {
         // If response exist
-        if (this.commandResponses.containsKey(request)) {
+        if (this.commonResponses.containsKey(request)) {
             createResponseThread(this.commonResponses.get(request), request, headers, ip);
         // Else looking for response, where responseIfStartsWith=true
         } else {
             // Ищем тот ответ, с которого начинается запрос
             for (Map.Entry<String, ResponseAction> el: this.commonResponses.entrySet()) {
-                if ( !request.startsWith(el.getKey()) || el.getKey().isEmpty()) continue;
+                if ( !request.startsWith(el.getKey()) || el.getKey().isEmpty() || !el.getValue().isStart) continue;
 
                 createResponseThread(el.getValue(), request, headers, ip);
                 return;
             }
             
             // Иначе отправляем 404
-            this.on404(request, headers, ip);
+            this.send404();
         }
     }
 
-    private void on404(String request, String[] args, String ip) {
-        if (this.commonResponses.containsKey("404")) {
-            createResponseThread(this.commonResponses.get("404"), request, args, ip);
-        } else {
-            responser.sendResponse("Error 404", "200 OK");
-        }
+    private void send404() {
+        responser.send404Response();
+        try {this.input.close();} catch (IOException e) {e.printStackTrace();}
+        try {this.output.close();} catch (IOException e) {e.printStackTrace();}
     }
-
 }

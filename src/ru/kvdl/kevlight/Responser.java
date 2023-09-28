@@ -127,6 +127,10 @@ public class Responser {
      * Send 404 error page
      */
     public void send404Response() {
+        if (on404==null) {
+            this.sendResponse("Error 404", "200 OK");
+            return;
+        }
         on404.response(request, headers, ip, this);
     }
 
