@@ -1,5 +1,9 @@
 package ru.kvdl.kevlight;
 
+import ru.kvdl.kevlight.annotations.KLCmdRequestHandler;
+import ru.kvdl.kevlight.annotations.KLObserver;
+import ru.kvdl.kevlight.annotations.KLRequestHandler;
+
 import java.io.*;
 import java.lang.reflect.Method;
 import java.net.ServerSocket;
@@ -36,36 +40,32 @@ public class Server {
     public void start() {
         // Поиск методов с аннотациями
         for ( Method handler : app.getClass().getDeclaredMethods() ) {
+            Class<?>[] types = handler.getParameterTypes();
             // Прочие запросы
             if (handler.isAnnotationPresent(KLRequestHandler.class)) {
-                KLRequestHandler ann = handler.getAnnotation(KLRequestHandler.class);
-
-                // Проверка на верные параметры
-                if (validateMethodArguments(handler, false)) {
-                    this.commonResponses.put(ann.request(), new ResponseAction(this.app, handler, ann.requestType(), ann.startsWith()));
-                } else {
-                    throw new RuntimeException("Неверные аргументы метода для использования аннотации KLRequestHandler: " + handler.getName());
-                }
+                this.commonResponses.put(handler.getAnnotation(KLRequestHandler.class).request(), new ResponseAction(this.app, handler, false));
             // Команды
             } else if (handler.isAnnotationPresent(KLCmdRequestHandler.class)) {
                 KLCmdRequestHandler ann = handler.getAnnotation(KLCmdRequestHandler.class);
 
                 // Проверка на верные параметры
-                if (validateMethodArguments(handler, true)) {
-                    this.commandResponses.put(ann.command(), new ResponseAction(this.app, handler));
+                if (
+                    types.length==3 &&
+                    types[0] == String[].class && types[1] == String.class && types[2] == Responser.class
+                ) {
+                    this.commandResponses.put(ann.command(), new ResponseAction(this.app, handler, true));
                 } else {
                     throw new RuntimeException("Неверные аргументы метода для использования аннотации KLCmdRequestHandler: " + handler.getName());
                 }
             // Наблюдатель
             } else if (handler.isAnnotationPresent(KLObserver.class)) {
-                Class<?>[] types = handler.getParameterTypes();
-
                 // Проверка на верные параметры и возвращаемое значение
                 if (handler.getReturnType() != boolean.class) {
                     throw new RuntimeException("Неверный тип возвращаемого значения метода для использования аннотации KLObserver: " + handler.getName());
                 }
 
-                if (types.length == 4 &&
+                if (
+                    types.length == 4 &&
                     types[0] == String.class && types[1] == String[].class && types[2] == String.class && types[3] == Responser.class
                 ) {
                     this.observer = handler;
@@ -84,7 +84,7 @@ public class Server {
     final private Map<String, ResponseAction> commonResponses = new HashMap<String, ResponseAction>();
     final private Map<String, ResponseAction> commandResponses = new HashMap<String, ResponseAction>();
     private OutputStream output;
-    private BufferedReader input;
+    private InputStream input;
     private Responser responser;
 
     // Главный цикл
@@ -95,31 +95,29 @@ public class Server {
                     // ожидание подключения
                     Socket socket = serverSocket.accept();
 
-                    input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                    input = socket.getInputStream();
                     output = socket.getOutputStream();
-
-                    // ожидание первой строки запроса
-                    while (!input.ready());
 
                     // чтение всего, что было отправлено клиентом
                     final String[] headers = getRequestHeaders(input);
+                    final byte[] content = getRequestContent(input);
 
                     final String fstLine = headers[0];
-                    final String request = fstLine.substring(fstLine.indexOf(" ")+2, fstLine.lastIndexOf(" "));
-                    final String type = fstLine.substring(0, fstLine.lastIndexOf(' '));
+                    final String request = fstLine.substring(fstLine.indexOf(' ')+2, fstLine.lastIndexOf(' '));
+                    final String type = fstLine.substring(0, fstLine.indexOf(' '));
 
                     final String ip = socket.getInetAddress().toString().substring(1);
 
-                    responser =  new Responser(output, this.commonResponses.get("404"), request, headers, ip);
+                    responser =  new Responser(output, this.commonResponses.get("404"), request, headers, content, ip);
                     
                     // Отвечаем, если смотртитель одобрил подключение
                     if ( observer ==null || this.getObserverPermission(request, headers, ip, responser) ) {
 
                         // Если запрос является командой
                         if (request.contains(commandPrefix+"<>")) {
-                            this.commandRequestHandler(request, headers, ip);
+                            this.commandRequestHandler(request, headers, ip, content);
                         } else {
-                            this.commonRequestHandler(request, type, headers, ip);
+                            this.commonRequestHandler(request, type, headers, ip, content);
                         }
                     }                
                 }
@@ -131,15 +129,6 @@ public class Server {
     // PRIVATE METHODS
     // ---------------
 
-    // Проверить на правильность аргументы метода
-    private boolean validateMethodArguments(Method method, boolean isCmd) {
-        Class<?>[] types = method.getParameterTypes();
-        if (isCmd) {
-            return types.length==3 && types[0] == String[].class && types[1] == String.class && types[2] == Responser.class;
-        }
-        return types.length==4 && types[0] == String.class && types[1] == String[].class && types[2] == String.class && types[3] == Responser.class;
-    }
-
     // Запустить наблюдателя
     private boolean getObserverPermission(String request, String[] args, String ip, Responser resp) {
         try {
@@ -148,50 +137,75 @@ public class Server {
         return false;
     }
 
+    // Получить контент запроса(если есть)
+    private byte[] getRequestContent(InputStream input) {
+        try {
+            if (input.available()==0) {return null;}
+            return input.readAllBytes();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return new byte[] {};
+        }
+    }
+
     // Get headers from BufferedReader
-    private String[] getRequestHeaders(BufferedReader request) {
+    private String[] getRequestHeaders(InputStream request) {
         ArrayList<String> l = new ArrayList<String>();
         try {
-            String str;
-            while (!(str = request.readLine()).isEmpty()) {
-                l.add(URLDecoder.decode(str, StandardCharsets.UTF_8));
+            final StringBuilder sb = new StringBuilder();
+            int b;
+            while ( (b =  request.read())!=-1 ) {
+                final char c = (char) b;
+                if (c=='\n') {
+                    if (sb.length()==1) {
+                        l.add(URLDecoder.decode(sb.toString(), StandardCharsets.UTF_8));
+                        String[] res = new String[l.size()];
+                        l.toArray(res);
+                        return res;
+                    }
+                    l.add(URLDecoder.decode(sb.toString(), StandardCharsets.UTF_8));
+                    sb.setLength(0);
+                } else {
+                    sb.append(c);
+                }
             }
-        } catch (Exception e) {e.printStackTrace();}
-        String[] res = new String[l.size()];
-        l.toArray(res);
-        return res;
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     // Create and start response thread
-    private void createResponseThread(ResponseAction action, String req, String[] args, String ip) {
+    private void createResponseThread(ResponseAction action, String req, String[] args, String ip, byte[] content) {
         new Thread(
-            new ResponseThread(action, req, args, ip, output, input, responser)
+            new ResponseThread(action, req, args, ip, output, input, content, responser)
         ).start();
     }
 
     // Command requests handler
-    private void commandRequestHandler(String request, String[] headers, String ip) {
+    private void commandRequestHandler(String request, String[] headers, String ip, byte[] content) {
         String cmd = request.split(commandPrefix)[0] + request.split("<>")[1];
         if (this.commandResponses.containsKey(cmd)) {
             String[] args = request.substring(request.indexOf("<>", request.indexOf(commandPrefix)+5)+2).split("<>");
-            createResponseThread(this.commandResponses.get(cmd), request, args, ip);
+            createResponseThread(this.commandResponses.get(cmd), request, args, ip, content);
         } else {
             this.send404();
         }
     }
 
     // Common requests handler 
-    private void commonRequestHandler(String type, String request, String[] headers, String ip) {
+    private void commonRequestHandler(String request, String type, String[] headers, String ip, byte[] content) {
         // If response exist
         if (this.commonResponses.containsKey(request) && this.commonResponses.get(request).type.equals(type)) {
-            createResponseThread(this.commonResponses.get(request+"*"+type), request, headers, ip);
+            createResponseThread(this.commonResponses.get(request), request, headers, ip, content);
         // Else looking for response, where responseIfStartsWith=true
         } else {
             // Ищем тот ответ, с которого начинается запрос
             for (Map.Entry<String, ResponseAction> el: this.commonResponses.entrySet()) {
                 if ( !el.getValue().type.equals(type) && !request.startsWith(el.getKey()) || el.getKey().isEmpty() || !el.getValue().isStart) continue;
 
-                createResponseThread(el.getValue(), request, headers, ip);
+                createResponseThread(el.getValue(), request, headers, ip, content);
                 return;
             }
             

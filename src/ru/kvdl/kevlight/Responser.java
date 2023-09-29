@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Method;
 import java.net.SocketException;
 
 public class Responser {
@@ -12,13 +11,15 @@ public class Responser {
     private final ResponseAction on404;
     private final String request;
     private final String[] headers;
+    private final byte[] content;
     private final String ip;
 
-    protected Responser(OutputStream out, ResponseAction on404, String req, String[] headers, String ip) {
+    protected Responser(OutputStream out, ResponseAction on404, String req, String[] headers, byte[] content, String ip) {
         this.request = req;
         this.out = out;
         this.on404 = on404;
         this.headers = headers;
+        this.content = content;
         this.ip = ip;
     }
 
@@ -148,7 +149,7 @@ public class Responser {
             this.sendResponse("Error 404", "200 OK");
             return;
         }
-        on404.response(request, headers, ip, this);
+        on404.response(request, headers, ip, content, this);
     }
 
 }

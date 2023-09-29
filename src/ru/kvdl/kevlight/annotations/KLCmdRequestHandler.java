@@ -1,4 +1,4 @@
-package ru.kvdl.kevlight;
+package ru.kvdl.kevlight.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -7,5 +7,6 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface KLObserver {
+public @interface KLCmdRequestHandler {
+    String command();
 }
