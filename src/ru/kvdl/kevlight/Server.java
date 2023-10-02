@@ -9,7 +9,6 @@ import java.lang.reflect.Method;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,20 +43,10 @@ public class Server {
             Class<?>[] types = handler.getParameterTypes();
             // Прочие запросы
             if (handler.isAnnotationPresent(KLRequestHandler.class)) {
-                this.commonResponses.put(handler.getAnnotation(KLRequestHandler.class).request(), new ResponseAction(this.app, handler, false));
+                this.request.put(handler.getAnnotation(KLRequestHandler.class).request(), new ResponseAction(this.app, handler, false));
             // Команды
             } else if (handler.isAnnotationPresent(KLCmdRequestHandler.class)) {
-                KLCmdRequestHandler ann = handler.getAnnotation(KLCmdRequestHandler.class);
-
-                // Проверка на верные параметры
-                if (
-                    types.length==3 &&
-                    types[0] == String[].class && types[1] == String.class && types[2] == Responser.class
-                ) {
-                    this.commandResponses.put(ann.command(), new ResponseAction(this.app, handler, true));
-                } else {
-                    throw new RuntimeException("Неверные аргументы метода для использования аннотации KLCmdRequestHandler: " + handler.getName());
-                }
+                this.cmdResponses.put(handler.getAnnotation(KLCmdRequestHandler.class).command(), new ResponseAction(this.app, handler, true));
             // Наблюдатель
             } else if (handler.isAnnotationPresent(KLObserver.class)) {
                 // Проверка на верные параметры и возвращаемое значение
@@ -82,8 +71,8 @@ public class Server {
     }
 
     // Set by server
-    final private Map<String, ResponseAction> commonResponses = new HashMap<String, ResponseAction>();
-    final private Map<String, ResponseAction> commandResponses = new HashMap<String, ResponseAction>();
+    final private Map<String, ResponseAction> request = new HashMap<String, ResponseAction>();
+    final private Map<String, ResponseAction> cmdResponses = new HashMap<String, ResponseAction>();
     private OutputStream output;
     private InputStream input;
     private Responser responser;
@@ -104,21 +93,22 @@ public class Server {
                     final byte[] content = getRequestContent(input);
 
                     final String fstLine = headers[0];
+                    System.out.println(fstLine.indexOf(" "));
                     final String request = fstLine.substring(fstLine.indexOf(' ')+2, fstLine.lastIndexOf(' '));
                     final String type = fstLine.substring(0, fstLine.indexOf(' '));
 
                     final String ip = socket.getInetAddress().toString().substring(1);
 
-                    responser =  new Responser(output, this.commonResponses.get("404"), request, headers, content, ip);
+                    responser =  new Responser(output, this.request.get("404"), request, headers, content, ip);
                     
                     // Отвечаем, если смотртитель одобрил подключение
                     if ( observer ==null || this.getObserverPermission(request, headers, ip, responser) ) {
 
                         // Если запрос является командой
                         if (request.contains(commandPrefix+"<>")) {
-                            this.commandRequestHandler(request, headers, ip, content);
+                            this.cmdRequestHandler(request, headers, ip, content);
                         } else {
-                            this.commonRequestHandler(request, type, headers, ip, content);
+                            this.requestHandler(request, type, headers, ip, content);
                         }
                     }                
                 }
@@ -162,22 +152,25 @@ public class Server {
         try {
             final StringBuilder sb = new StringBuilder();
             int b;
-            while ( (b =  request.read())!=-1 ) {
+            while (input.available() != 0) {
+                b =  request.read();
                 final char c = (char) b;
                 if (c=='\n') {
-                    if (sb.length()==1) {
+                    if (sb.length() != 1) {
                         l.add(URLDecoder.decode(sb.toString(), StandardCharsets.UTF_8));
-                        String[] res = new String[l.size()];
-                        l.toArray(res);
-                        return res;
+                        sb.setLength(0);
+                        continue;
                     }
-                    l.add(URLDecoder.decode(sb.toString(), StandardCharsets.UTF_8));
-                    sb.setLength(0);
+
+                    break;
                 } else {
                     sb.append(c);
                 }
             }
-            return null;
+            l.add(URLDecoder.decode(sb.toString(), StandardCharsets.UTF_8));
+            String[] res = new String[l.size()];
+            l.toArray(res);
+            return res;
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -192,26 +185,31 @@ public class Server {
     }
 
     // Command requests handler
-    private void commandRequestHandler(String request, String[] headers, String ip, byte[] content) {
+    private void cmdRequestHandler(String request, String[] headers, String ip, byte[] content) {
         String cmd = request.split(commandPrefix)[0] + request.split("<>")[1];
-        if (this.commandResponses.containsKey(cmd)) {
+        if (this.cmdResponses.containsKey(cmd)) {
             String[] args = request.substring(request.indexOf("<>", request.indexOf(commandPrefix)+5)+2).split("<>");
-            createResponseThread(this.commandResponses.get(cmd), request, args, ip, content);
+            createResponseThread(this.cmdResponses.get(cmd), request, args, ip, content);
         } else {
             this.send404();
         }
     }
 
     // Common requests handler 
-    private void commonRequestHandler(String request, String type, String[] headers, String ip, byte[] content) {
+    private void requestHandler(String request, String type, String[] headers, String ip, byte[] content) {
         // If response exist
-        if (this.commonResponses.containsKey(request) && this.commonResponses.get(request).type.equals(type)) {
-            createResponseThread(this.commonResponses.get(request), request, headers, ip, content);
+        if (this.request.containsKey(request) && this.request.get(request).requestType.equals(type)) {
+            createResponseThread(this.request.get(request), request, headers, ip, content);
         // Else looking for response, where responseIfStartsWith=true
         } else {
             // Ищем тот ответ, с которого начинается запрос
-            for (Map.Entry<String, ResponseAction> el: this.commonResponses.entrySet()) {
-                if ( !el.getValue().type.equals(type) && !request.startsWith(el.getKey()) || el.getKey().isEmpty() || !el.getValue().isStart) continue;
+            for (Map.Entry<String, ResponseAction> el: this.request.entrySet()) {
+                if (
+                        !el.getValue().requestType.equals(type) &&
+                        !request.startsWith(el.getKey()) ||
+                        el.getKey().isEmpty() ||
+                        !el.getValue().isStartedWith
+                ) continue;
 
                 createResponseThread(el.getValue(), request, headers, ip, content);
                 return;

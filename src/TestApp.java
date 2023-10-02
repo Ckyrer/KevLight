@@ -7,6 +7,7 @@ import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 
 public class TestApp {
+    final static String PATH = new File("").getAbsolutePath();
     public static void main(String[] args) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         Server host = new Server(new TestApp(), 7070);
 
@@ -27,11 +28,11 @@ public class TestApp {
     public void print(byte[] content, Responser resp) {
         System.out.print("Posted this: ");
         System.out.print(new String(content));
-        resp.sendResponse("aboba", "200 OK");
+        resp.sendResponse("AAA", "200 OK");
     }
 
-    @KLCmdRequestHandler(command = "echo")
-    public void test(String[] args, String ip, Responser resp) {
+    @KLCmdRequestHandler(command = "echo", args = {KLParam.CMD_ARGUMENTS})
+    public void test(String[] args, Responser resp) {
         if (args.length==1) {
             resp.sendResponse(args[0], "200 OK");
         } else {
@@ -47,12 +48,11 @@ public class TestApp {
 
     @KLRequestHandler(request = "json")
     public void onJSON(Responser resp) {
-        resp.sendJSON(new File(new File("").getAbsolutePath()+"/resources/test.json"));
+        resp.sendJSON(new File(PATH+"/resources/test.json"));
     }
 
     @KLRequestHandler(request = "404")
     public void on404(Responser resp) {
-        System.out.println("404");
         resp.sendResponse("Oh no( 404", "404 Not Found");
     }
 }
