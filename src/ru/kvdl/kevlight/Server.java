@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -140,8 +141,15 @@ public class Server {
     // Получить контент запроса(если есть)
     private byte[] getRequestContent(InputStream input) {
         try {
-            if (input.available()==0) {return null;}
-            return input.readAllBytes();
+            final ArrayList<Byte> res = new ArrayList<Byte>();
+            while (input.available()!=0) {
+                res.add((byte) input.read());
+            }
+            final byte[] ret = new byte[res.size()];
+            for (int i = 0; i<res.size(); i++) {
+                ret[i] = res.get(i);
+            }
+            return ret;
         } catch (IOException e) {
             e.printStackTrace();
             return new byte[] {};

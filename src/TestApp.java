@@ -3,6 +3,7 @@ import ru.kvdl.kevlight.annotations.KLCmdRequestHandler;
 import ru.kvdl.kevlight.annotations.KLObserver;
 import ru.kvdl.kevlight.annotations.KLRequestHandler;
 
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 
 public class TestApp {
@@ -22,9 +23,11 @@ public class TestApp {
         return true;
     }
 
-    @KLRequestHandler(request = "post", requestType = "POST", args = KLParam.REQUEST)
-    public void print(String req, String[] head, byte[] content) {
-
+    @KLRequestHandler(request = "post", requestType = "POST", args = {KLParam.CONTENT})
+    public void print(byte[] content, Responser resp) {
+        System.out.print("Posted this: ");
+        System.out.print(new String(content));
+        resp.sendResponse("aboba", "200 OK");
     }
 
     @KLCmdRequestHandler(command = "echo")
@@ -40,6 +43,11 @@ public class TestApp {
     public void home(Responser resp) {
         System.out.println("Hi");
         resp.sendResponse("Hello there!", "200 OK");
+    }
+
+    @KLRequestHandler(request = "json")
+    public void onJSON(Responser resp) {
+        resp.sendJSON(new File(new File("").getAbsolutePath()+"/resources/test.json"));
     }
 
     @KLRequestHandler(request = "404")
