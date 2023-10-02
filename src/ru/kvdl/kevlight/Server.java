@@ -10,9 +10,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class Server {
     // Set by user
@@ -90,17 +88,28 @@ public class Server {
 
                     // чтение всего, что было отправлено клиентом
                     final String[] headers = getRequestHeaders(input);
-                    final byte[] content = getRequestContent(input);
+                    if (headers==null) {
+                        input.close();
+                        output.close();
+                        continue;
+                    }
+                    final byte[] content = getRequestContent(input, headers);
 
                     final String fstLine = headers[0];
-                    System.out.println(fstLine.indexOf(" "));
-                    final String request = fstLine.substring(fstLine.indexOf(' ')+2, fstLine.lastIndexOf(' '));
-                    final String type = fstLine.substring(0, fstLine.indexOf(' '));
+                    final String request = fstLine.substring(fstLine.indexOf(" ")+2, fstLine.lastIndexOf(" "));
+                    final String type = fstLine.substring(0, fstLine.indexOf(" "));
 
                     final String ip = socket.getInetAddress().toString().substring(1);
 
-                    responser =  new Responser(output, this.request.get("404"), request, headers, content, ip);
-                    
+                    responser =  new Responser(output, this.request.get("404"), request, headers.clone(), content, ip);
+
+                    if (content==null) {
+                        responser.sendResponse("Error 400", "400 Bad Request");
+                        output.close();
+                        input.close();
+                        continue;
+                    }
+
                     // Отвечаем, если смотртитель одобрил подключение
                     if ( observer ==null || this.getObserverPermission(request, headers, ip, responser) ) {
 
@@ -129,20 +138,33 @@ public class Server {
     }
 
     // Получить контент запроса(если есть)
-    private byte[] getRequestContent(InputStream input) {
+    private byte[] getRequestContent(InputStream input, String[] headers) {
+        int contentSize;
         try {
-            final ArrayList<Byte> res = new ArrayList<Byte>();
-            while (input.available()!=0) {
-                res.add((byte) input.read());
+            String cs = Arrays.stream(headers)
+                    .filter(x -> x.startsWith("Content-Length"))
+                    .findFirst()
+                    .get();
+            contentSize = Integer.parseInt(cs.substring(cs.lastIndexOf(" ")+1));
+        } catch (NoSuchElementException e) {
+            contentSize = -1;
+        }
+
+        try {
+            int count = 0;
+            while (input.available()==0) {
+                count++;
+                if (count>1000) {
+                    return new byte[] {};
+                }
             }
-            final byte[] ret = new byte[res.size()];
-            for (int i = 0; i<res.size(); i++) {
-                ret[i] = res.get(i);
+            if (contentSize==-1) {
+                return null;
             }
-            return ret;
+            return input.readNBytes(contentSize);
         } catch (IOException e) {
             e.printStackTrace();
-            return new byte[] {};
+            return null;
         }
     }
 
@@ -150,14 +172,21 @@ public class Server {
     private String[] getRequestHeaders(InputStream request) {
         ArrayList<String> l = new ArrayList<String>();
         try {
+            int count = 0;
+            while (input.available()==0) {
+                count++;
+                if (count>1000) {
+                    return null;
+                }
+            }
+
             final StringBuilder sb = new StringBuilder();
-            int b;
+
             while (input.available() != 0) {
-                b =  request.read();
-                final char c = (char) b;
+                final char c = (char) request.read();
                 if (c=='\n') {
                     if (sb.length() != 1) {
-                        l.add(URLDecoder.decode(sb.toString(), StandardCharsets.UTF_8));
+                        l.add(URLDecoder.decode(sb.toString().strip(), StandardCharsets.UTF_8));
                         sb.setLength(0);
                         continue;
                     }
@@ -167,11 +196,8 @@ public class Server {
                     sb.append(c);
                 }
             }
-            l.add(URLDecoder.decode(sb.toString(), StandardCharsets.UTF_8));
-            String[] res = new String[l.size()];
-            l.toArray(res);
-            return res;
-        } catch (Exception e) {
+            return l.toArray(new String[0]);
+        } catch (IOException e) {
             e.printStackTrace();
             return null;
         }
