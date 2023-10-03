@@ -39,5 +39,22 @@ public class App {
 }
 ```
 # Документация
-## Полная документация здесь: <URL HERE>
-#### awd
+Полная документация здесь: <URL HERE>
+### Возможности Responser
+Responser - это класс, с помощью которого осуществляется ответ на запросы.
+Методы Responser:
+
+    sendString(String content) - отправить строку
+    sendResponse(String content, String status) - отправить строку с определённым HTTP статусом
+    sendResponse(byte[] content, String status) - отпарвить массив байтов с определённым HTTP статусом
+    sendResponse(String content, String status, String[] headers) - отправить строку с определённым HTTP статусом и заголовками
+    sendResponse(byte[] content, String status, String[] headers) - отправить массив байтов с определённым HTTP статусом и заголовками
+    sendJSON(File file) - отправить файл
+    sendResponse(InputStream in, String status, String[] headers, int bufferSize) - прочесть файл и отправить содержимое, используя byte[] указанного размера, HTTP статус и заголовки
+    
+### Аннотации
+#### @KLRequestHandler()
+    String request - запрос, на который срабатывает метод
+    String requestType = "GET" - тип запроса, на который срабатвыает метод(по умолчанию "GET")
+    KLParam[] - 
+
