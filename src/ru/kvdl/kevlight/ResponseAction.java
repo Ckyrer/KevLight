@@ -2,6 +2,7 @@ package ru.kvdl.kevlight;
 
 import ru.kvdl.kevlight.annotations.KLCmdRequestHandler;
 import ru.kvdl.kevlight.annotations.KLRequestHandler;
+import ru.kvdl.kevlight.utls.KLParam;
 
 import java.lang.reflect.Method;
 

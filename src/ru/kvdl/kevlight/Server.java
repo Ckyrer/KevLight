@@ -1,5 +1,6 @@
 package ru.kvdl.kevlight;
 
+import ru.kvdl.kevlight.annotations.KL404Handler;
 import ru.kvdl.kevlight.annotations.KLCmdRequestHandler;
 import ru.kvdl.kevlight.annotations.KLObserver;
 import ru.kvdl.kevlight.annotations.KLRequestHandler;
@@ -18,6 +19,7 @@ public class Server {
     final private int port;
     private String commandPrefix = "CMD";
     private Method observer;
+    private ResponseAction on404 = null;
 
     public Server(Object app, int port) {
         this.app = app;
@@ -41,6 +43,10 @@ public class Server {
             Class<?>[] types = handler.getParameterTypes();
             // Прочие запросы
             if (handler.isAnnotationPresent(KLRequestHandler.class)) {
+                if (handler.isAnnotationPresent(KL404Handler.class)) {
+                    this.on404 = new ResponseAction(this.app, handler, false);
+                    continue;
+                }
                 this.request.put(handler.getAnnotation(KLRequestHandler.class).request(), new ResponseAction(this.app, handler, false));
             // Команды
             } else if (handler.isAnnotationPresent(KLCmdRequestHandler.class)) {
@@ -101,7 +107,7 @@ public class Server {
 
                     final String ip = socket.getInetAddress().toString().substring(1);
 
-                    responser =  new Responser(output, this.request.get("404"), request, headers.clone(), content, ip);
+                    responser =  new Responser(output, this.on404, request, headers.clone(), content, ip);
 
                     if (content==null) {
                         responser.sendResponse("Error 400", "400 Bad Request");
@@ -154,7 +160,7 @@ public class Server {
             int count = 0;
             while (input.available()==0) {
                 count++;
-                if (count>1000) {
+                if (count>5000) {
                     return new byte[] {};
                 }
             }
@@ -175,7 +181,7 @@ public class Server {
             int count = 0;
             while (input.available()==0) {
                 count++;
-                if (count>1000) {
+                if (count>5000) {
                     return null;
                 }
             }
@@ -231,10 +237,10 @@ public class Server {
             // Ищем тот ответ, с которого начинается запрос
             for (Map.Entry<String, ResponseAction> el: this.request.entrySet()) {
                 if (
-                        !el.getValue().requestType.equals(type) &&
+                        !el.getValue().requestType.equals(type) ||
+                        !el.getValue().isStartedWith ||
                         !request.startsWith(el.getKey()) ||
-                        el.getKey().isEmpty() ||
-                        !el.getValue().isStartedWith
+                        el.getKey().isEmpty()
                 ) continue;
 
                 createResponseThread(el.getValue(), request, headers, ip, content);

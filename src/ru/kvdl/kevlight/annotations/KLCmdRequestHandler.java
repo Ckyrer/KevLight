@@ -1,6 +1,6 @@
 package ru.kvdl.kevlight.annotations;
 
-import ru.kvdl.kevlight.KLParam;
+import ru.kvdl.kevlight.utls.KLParam;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
