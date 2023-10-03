@@ -1,6 +1,7 @@
 ### My ###
-/src/TestApp.java
 /resources
+src/TestApp.java
+*/TestApp.java
 
 ### IntelliJ IDEA ###
 out/
