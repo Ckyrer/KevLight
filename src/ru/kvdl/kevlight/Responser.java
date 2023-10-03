@@ -7,8 +7,29 @@ import java.io.OutputStream;
 import java.net.SocketException;
 
 public class Responser {
-    public final OutputStream out;
+    private final OutputStream out;
     private final ResponseAction on404;
+
+    public OutputStream getOutput() {
+        return out;
+    }
+
+    public String getRequest() {
+        return request;
+    }
+
+    public String[] getArgs() {
+        return headers;
+    }
+
+    public byte[] getContent() {
+        return content;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
     private final String request;
     private final String[] headers;
     private final byte[] content;
@@ -37,7 +58,7 @@ public class Responser {
                 }
                 out.flush();
             } catch (SocketException e) {
-                System.out.println("Соединение разорвано");
+                e.printStackTrace();
             }
         } catch (IOException e) {e.printStackTrace();}
     }
@@ -134,7 +155,7 @@ public class Responser {
                 
                 out.flush();
             } catch (SocketException e) {
-                System.out.println("Соединение разорвано");
+                e.printStackTrace();
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -149,7 +170,7 @@ public class Responser {
             this.sendResponse("Error 404", "200 OK");
             return;
         }
-        on404.response(request, headers, ip, content, this);
+        on404.response(this);
     }
 
 }

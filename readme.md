@@ -9,13 +9,24 @@ public class App {
 
         host.start();
     }
-
+    
+    // Метод overwatch будет вызываться перед всеми другими методами при любом запросе.
+    // Если метод вернёт false, то соединение закроется и начнётся обработка следующего.
+    // Если метод вернёт true, то обработка запроса продолжится.
     @KLObserver
     public boolean overwatch(String req, String[] head, String ip, Responser resp) {
-        System.out.println(ip+" "+req);
+        System.out.println("Новый запрос: "+ip+" "+req);
         return true;
     }
+    
+    @KLRequestHandler(request = "")
+    public void home(Responser resp) {
+        resp.sendString(DHOperator.buildPage(PATH+"pages/home"))
+    }
 
+    // Метод test будет вызываться при запросе, который начинается с "COMMAND_PREFIX<>echo"
+    // COMMAND_PREFIX = "CMD" (по умолчанию, можно изменить с помощью Server.setCommandPrefix())
+    // args - аргументы, которые будут переданы при вызове метода(см. KLParam)
     @KLCmdRequestHandler(command = "echo", args = {KLParam.CMD_ARGUMENTS})
     public void test(String[] args, Responser resp) {
         if (args.length==1) {
@@ -23,11 +34,6 @@ public class App {
         } else {
             resp.send404Response();
         }
-    }
-    
-    @KLRequestHandler(request = "")
-    public void home(Responser resp) {
-        resp.sendString(DHOperator.buildPage(PATH+"pages/home"))
     }
     
     // Этот метод будет вызываться при responser.send404Response()
@@ -56,5 +62,15 @@ Responser - это класс, с помощью которого осущест
 #### @KLRequestHandler()
     String request - запрос, на который срабатывает метод
     String requestType = "GET" - тип запроса, на который срабатвыает метод(по умолчанию "GET")
-    KLParam[] - 
+    KLParam[] - параметры, которые необходимо передать в метод(см. пример)
 
+#### @KLCmdRequestHandler()
+    String cmd - команда, на которую срабатывает метод
+    KLParam[] - параметры, которые необходимо передать в метод(см. пример)
+
+#### @KLObserver()
+    Метод будет выполняться перед любым запросом(см. пример)
+
+#### @KL404Handler()
+    Используется вместе с @KLRequestHandler(). 
+    Метод будет вызыватсья при ошибке 404 или responser.send404Response()

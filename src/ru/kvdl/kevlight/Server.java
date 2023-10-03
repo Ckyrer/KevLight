@@ -61,7 +61,7 @@ public class Server {
             } else if (handler.isAnnotationPresent(KLObserver.class)) {
                 // Проверка на верные параметры и возвращаемое значение
                 if (handler.getReturnType() != boolean.class) {
-                    throw new RuntimeException("Неверный тип возвращаемого значения метода для использования аннотации KLObserver: " + handler.getName());
+                    throw new RuntimeException("Метод должен возвращать boolean: " + handler.getName());
                 }
 
                 if (
@@ -70,7 +70,7 @@ public class Server {
                 ) {
                     this.observer = handler;
                 } else {
-                    throw new RuntimeException("Неверные аргументы метода для использования аннотации KLObserver: " + handler.getName());
+                    throw new RuntimeException("Неверные параметры метода: " + handler.getName());
                 }
             }
         }
@@ -101,7 +101,9 @@ public class Server {
                     // чтение всего, что было отправлено клиентом
                     final String[] headers = getRequestHeaders(input);
                     if (headers==null) {
-                        responser.sendResponse("Error! Bad connection.", "524 A Timeout Occurred");
+                        output.write( ("HTTP/1.1 524 A Timeout Occured\n").getBytes() );
+                        output.write( "\n".getBytes() );
+                        output.flush();
                         input.close();
                         output.close();
                         continue;
@@ -117,7 +119,9 @@ public class Server {
                     responser =  new Responser(output, this.on404, request, headers.clone(), content, ip);
 
                     if (content==null) {
-                        responser.sendResponse("Error 400", "400 Bad Request");
+                        output.write( ("HTTP/1.1 400 Bad Request\n").getBytes() );
+                        output.write( "\n".getBytes() );
+                        output.flush();
                         output.close();
                         input.close();
                         continue;
@@ -128,9 +132,9 @@ public class Server {
 
                         // Если запрос является командой
                         if (request.contains(commandPrefix+"<>")) {
-                            this.cmdRequestHandler(request, headers, ip, content);
+                            this.cmdRequestHandler(request);
                         } else {
-                            this.requestHandler(request, type, headers, ip, content);
+                            this.requestHandler(request, type, headers);
                         }
                     }                
                 }
@@ -146,8 +150,9 @@ public class Server {
     private boolean getObserverPermission(String request, String[] args, String ip, Responser resp) {
         try {
             return (boolean) this.observer.invoke(this.app, request, args, ip, resp);
-        } catch (ReflectiveOperationException e) {e.printStackTrace();}
-        return false;
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Неверные параметры метода: "+this.observer.getName());
+        }
     }
 
     // Получить контент запроса(если есть)
@@ -217,28 +222,34 @@ public class Server {
     }
 
     // Create and start response thread
-    private void createResponseThread(ResponseAction action, String req, String[] args, String ip, byte[] content) {
+    private void createResponseThread(ResponseAction action, String req, String[] args) {
+        Responser res = new Responser(responser.getOutput(), on404, req, args, responser.getContent(), responser.getIp());
         new Thread(
-            new ResponseThread(action, req, args, ip, output, input, content, responser)
+            new ResponseThread(action, output, input, res)
         ).start();
     }
 
     // Command requests handler
-    private void cmdRequestHandler(String request, String[] headers, String ip, byte[] content) {
-        String cmd = request.split(commandPrefix)[0] + request.split("<>")[1];
+    private void cmdRequestHandler(String request) {
+        final String[] splitted = request.split("<>");
+        if (splitted.length<=1) {
+            this.send404();
+            return;
+        }
+        String cmd = request.split(commandPrefix)[0] + splitted[1];
         if (this.cmdResponses.containsKey(cmd)) {
             String[] args = request.substring(request.indexOf("<>", request.indexOf(commandPrefix)+5)+2).split("<>");
-            createResponseThread(this.cmdResponses.get(cmd), request, args, ip, content);
+            createResponseThread(this.cmdResponses.get(cmd), request, args);
         } else {
             this.send404();
         }
     }
 
     // Common requests handler 
-    private void requestHandler(String request, String type, String[] headers, String ip, byte[] content) {
+    private void requestHandler(String request, String type, String[] headers) {
         // If response exist
         if (this.request.containsKey(request) && this.request.get(request).requestType.equals(type)) {
-            createResponseThread(this.request.get(request), request, headers, ip, content);
+            createResponseThread(this.request.get(request), request, headers);
         // Else looking for response, where responseIfStartsWith=true
         } else {
             // Ищем тот ответ, с которого начинается запрос
@@ -250,7 +261,7 @@ public class Server {
                         el.getKey().isEmpty()
                 ) continue;
 
-                createResponseThread(el.getValue(), request, headers, ip, content);
+                createResponseThread(el.getValue(), request, headers);
                 return;
             }
             
