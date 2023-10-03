@@ -17,6 +17,7 @@ public class Server {
     // Set by user
     final private Object app;
     final private int port;
+    private int REQUEST_TIMEOUT = 10000;
     private String commandPrefix = "CMD";
     private Method observer;
     private ResponseAction on404 = null;
@@ -30,6 +31,11 @@ public class Server {
     // --------------
     // PUBLIC METHODS
     // --------------
+
+    // Set server timeout
+    public void setTimeout(int timeout) {
+        this.REQUEST_TIMEOUT = timeout;
+    }
 
     // Set prefix for command requests
     public void setCommandPrefix(String prefix) {
@@ -95,6 +101,7 @@ public class Server {
                     // чтение всего, что было отправлено клиентом
                     final String[] headers = getRequestHeaders(input);
                     if (headers==null) {
+                        responser.sendResponse("Error! Bad connection.", "524 A Timeout Occurred");
                         input.close();
                         output.close();
                         continue;
@@ -160,7 +167,7 @@ public class Server {
             int count = 0;
             while (input.available()==0) {
                 count++;
-                if (count>5000) {
+                if (count>REQUEST_TIMEOUT) {
                     return new byte[] {};
                 }
             }
@@ -181,7 +188,7 @@ public class Server {
             int count = 0;
             while (input.available()==0) {
                 count++;
-                if (count>5000) {
+                if (count>REQUEST_TIMEOUT) {
                     return null;
                 }
             }

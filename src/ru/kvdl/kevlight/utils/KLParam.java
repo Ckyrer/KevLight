@@ -1,4 +1,4 @@
-package ru.kvdl.kevlight.utls;
+package ru.kvdl.kevlight.utils;
 
 public enum KLParam {
     CMD_ARGUMENTS(),
