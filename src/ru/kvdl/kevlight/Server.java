@@ -65,8 +65,8 @@ public class Server {
                 }
 
                 if (
-                    types.length == 4 &&
-                    types[0] == String.class && types[1] == String[].class && types[2] == String.class && types[3] == Responser.class
+                    types.length == 1 &&
+                    types[0] == Responser.class
                 ) {
                     this.observer = handler;
                 } else {

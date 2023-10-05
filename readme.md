@@ -19,8 +19,12 @@ public class App {
         return true;
     }
     
+    // Отправить начальную страницу
     @KLRequestHandler(request = "")
     public void home(Responser resp) {
+        // DHOpertaor.build(path) - возращает HTML разметку, с JS и/или CSS внутри,
+        // если в директории path есть main.js и/или style.css
+        // в директории обязательно должен быть файл index.html
         resp.sendString(DHOperator.buildPage(PATH+"pages/home"))
     }
 

@@ -23,7 +23,8 @@ public class Responser {
     }
 
     public byte[] getContent() {
-        return content;
+        if (content.length!=0) return content;
+        return null;
     }
 
     public String getIp() {
