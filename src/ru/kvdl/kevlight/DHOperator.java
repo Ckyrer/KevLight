@@ -4,19 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 
 public class DHOperator {
-    public static String readFile(File file) {
-        String data = "";
-        try {
-            FileInputStream in = new FileInputStream(file);
-            data = new String(in.readAllBytes());
-            in.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return data;
-    }
-
-    public static byte[] readFileBytes(File file) {
+    static byte[] readFileBytes(File file) {
         byte[] data = null;
         try {
             FileInputStream in = new FileInputStream(file);
@@ -27,7 +15,7 @@ public class DHOperator {
         }
         return data;
     }
-    public static String readFile(String path) {
+    static String readFile(String path) {
         String data = "";
         try {
             FileInputStream in = new FileInputStream(path);
@@ -39,7 +27,7 @@ public class DHOperator {
         return data;
     }
 
-    public static boolean isFileExist(String path) {
+    static boolean isFileExist(String path) {
         File res = new File(path);
         if (res.exists() && !res.isDirectory()) {
             return true;

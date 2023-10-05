@@ -15,7 +15,7 @@ public class App {
     // Если метод вернёт true, то обработка запроса продолжится.
     @KLObserver
     public boolean overwatch(String req, String[] head, String ip, Responser resp) {
-        System.out.println("Новый запрос: "+ip+" "+req);
+        System.out.println(resp.getIp()+" "+resp.getRequest());
         return true;
     }
     
@@ -54,13 +54,25 @@ public class App {
 Responser - это класс, с помощью которого осуществляется ответ на запросы.
 Методы Responser:
 
+    getArgs() - возвращает аргументы команда(в KlCmdRequestHandler)
+        или HTTP заголовки(в LKRequestHandler).
+    getRequest() - возращает запрос, отправленный на сервер("", "images", "CMD<>login" и т. д.).
+    getOutput() - возвращает OutputStream, с помощью которого можно вручную отправлять
+        данные клиенту.
+    getContent() - возвращает массив байтов, отправленный клиентом(можеть быть null).
+    getIp() - возвращает IP адресс клиента, отправившего запрос.
+
     sendString(String content) - отправить строку
     sendResponse(String content, String status) - отправить строку с определённым HTTP статусом
-    sendResponse(byte[] content, String status) - отпарвить массив байтов с определённым HTTP статусом
-    sendResponse(String content, String status, String[] headers) - отправить строку с определённым HTTP статусом и заголовками
-    sendResponse(byte[] content, String status, String[] headers) - отправить массив байтов с определённым HTTP статусом и заголовками
+    sendResponse(byte[] content, String status) - отправить массив байтов с
+        определённым HTTP статусом
+    sendResponse(String content, String status, String[] headers) - отправить строку с
+        определённым HTTP статусом и заголовками
+    sendResponse(byte[] content, String status, String[] headers) - отправить массив байтов с
+        определённым HTTP статусом и заголовками
     sendJSON(File file) - отправить файл
-    sendResponse(InputStream in, String status, String[] headers, int bufferSize) - прочесть файл и отправить содержимое, используя byte[] указанного размера, HTTP статус и заголовки
+    sendResponse(InputStream in, String status, String[] headers, int bufferSize) - прочесть
+        файл и отправить содержимое, используя byte[] указанного размера, HTTP статус и заголовки
     
 ### Аннотации
 #### @KLRequestHandler()
@@ -77,4 +89,4 @@ Responser - это класс, с помощью которого осущест
 
 #### @KL404Handler()
     Используется вместе с @KLRequestHandler(). 
-    Метод будет вызыватсья при ошибке 404 или responser.send404Response()
+    Метод будет вызываться при ошибке 404 или responser.send404Response()

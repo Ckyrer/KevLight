@@ -128,7 +128,7 @@ public class Server {
                     }
 
                     // Отвечаем, если смотртитель одобрил подключение
-                    if ( observer ==null || this.getObserverPermission(request, headers, ip, responser) ) {
+                    if ( observer ==null || this.getObserverPermission(responser) ) {
 
                         // Если запрос является командой
                         if (request.contains(commandPrefix+"<>")) {
@@ -147,9 +147,9 @@ public class Server {
     // ---------------
 
     // Запустить наблюдателя
-    private boolean getObserverPermission(String request, String[] args, String ip, Responser resp) {
+    private boolean getObserverPermission(Responser resp) {
         try {
-            return (boolean) this.observer.invoke(this.app, request, args, ip, resp);
+            return (boolean) this.observer.invoke(this.app, resp);
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException("Неверные параметры метода: "+this.observer.getName());
         }
