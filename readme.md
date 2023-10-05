@@ -14,7 +14,7 @@ public class App {
     // Если метод вернёт false, то соединение закроется и начнётся обработка следующего.
     // Если метод вернёт true, то обработка запроса продолжится.
     @KLObserver
-    public boolean overwatch(String req, String[] head, String ip, Responser resp) {
+    public boolean overwatch(Responser resp) {
         System.out.println(resp.getIp()+" "+resp.getRequest());
         return true;
     }
@@ -31,10 +31,10 @@ public class App {
     // Метод test будет вызываться при запросе, который начинается с "COMMAND_PREFIX<>echo"
     // COMMAND_PREFIX = "CMD" (по умолчанию, можно изменить с помощью Server.setCommandPrefix())
     // args - аргументы, которые будут переданы при вызове метода(см. KLParam)
-    @KLCmdRequestHandler(command = "echo", args = {KLParam.CMD_ARGUMENTS})
-    public void test(String[] args, Responser resp) {
-        if (args.length==1) {
-            resp.sendResponse(args[0], "200 OK");
+    @KLCmdRequestHandler(command = "echo")
+    public void test(Responser resp) {
+        if (resp.getArgs().length==1) {
+            resp.sendResponse(resp.getArgs()[0], "200 OK");
         } else {
             resp.send404Response();
         }
@@ -78,11 +78,9 @@ Responser - это класс, с помощью которого осущест
 #### @KLRequestHandler()
     String request - запрос, на который срабатывает метод
     String requestType = "GET" - тип запроса, на который срабатвыает метод(по умолчанию "GET")
-    KLParam[] - параметры, которые необходимо передать в метод(см. пример)
 
 #### @KLCmdRequestHandler()
     String cmd - команда, на которую срабатывает метод
-    KLParam[] - параметры, которые необходимо передать в метод(см. пример)
 
 #### @KLObserver()
     Метод будет выполняться перед любым запросом(см. пример)
